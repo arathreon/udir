@@ -194,6 +194,6 @@ fn main() {
         .expect("There was a problem with traversing the directory tree.");
 
     for copied_path in copied_paths {
-        println!("Copied {}", copied_path);
+        println!("Copied to: {}", copied_path);
     }
 }
