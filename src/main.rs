@@ -1,7 +1,84 @@
 use std::env;
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, PartialEq)]
+struct FileToCopy {
+    source: PathBuf,
+    target: PathBuf,
+}
+
+#[derive(Debug, PartialEq)]
+struct DirectoryToCreate {
+    path: PathBuf,
+}
+
+#[derive(Debug, PartialEq)]
+struct FilesAndDirectories {
+    files: Vec<FileToCopy>,
+    directories: Vec<DirectoryToCreate>,
+}
+
+fn get_files_and_directories(
+    source: &PathBuf,
+    target: &PathBuf,
+) -> io::Result<FilesAndDirectories> {
+    let mut files = Vec::new();
+    let mut directories = Vec::new();
+
+    if source.is_dir() {
+        for entry in fs::read_dir(source)? {
+            let entry = entry?;
+            let source_path = entry.path();
+            if source_path.is_dir() {
+                // If the source_path is a subdirectory, check, whether it exists. If not, add it
+                // to be created. Call the function on the subdirectory.
+                let dir_name = source_path.file_name().unwrap();
+                let new_target = Path::new(target).join(Path::new(dir_name));
+                let dir_exists = fs::exists(&new_target)?;
+                if !dir_exists {
+                    directories.push(DirectoryToCreate {
+                        path: new_target.clone(),
+                    });
+                }
+                let mut result = get_files_and_directories(&source_path, &new_target)?;
+                files.append(&mut result.files);
+                directories.append(&mut result.directories);
+            } else {
+                // Source path is a file
+                let file_name = source_path.file_name().unwrap();
+                let target_path = Path::new(target).join(Path::new(file_name));
+                let file_exists = fs::exists(&target_path)?;
+
+                if file_exists {
+                    // If the target directory contains a file with the same name as the source path,
+                    // check last modified timestamps. If the source file was modified later, re-write
+                    // the target file.
+                    let source_metadata = fs::metadata(&source_path)?;
+                    let target_metadata = fs::metadata(&target_path)?;
+
+                    let source_last_modified = source_metadata.modified()?;
+                    let target_last_modified = target_metadata.modified()?;
+
+                    if target_last_modified < source_last_modified {
+                        files.push(FileToCopy {
+                            source: source_path,
+                            target: target_path,
+                        });
+                    }
+                } else {
+                    // If the target path doesn't exist, copy the source path.
+                    files.push(FileToCopy {
+                        source: source_path,
+                        target: target_path,
+                    });
+                }
+            }
+        }
+    }
+    Ok(FilesAndDirectories { files, directories })
+}
 
 fn update_files_in_directory(source: &Path, target: &Path) -> io::Result<Vec<String>> {
     let mut copied_paths = vec![];
@@ -58,7 +135,7 @@ mod tests {
     use std::thread::sleep;
     use std::time::Duration;
     #[test]
-    fn test_update_files_in_directory() {
+    fn test_get_files_and_directories() {
         // Set up files
         let current_path = env::current_dir().unwrap();
         let test_dir_path = current_path.join("test_dir");
@@ -140,24 +217,33 @@ mod tests {
         let target_file_7_content = b"7 This is a relict that should not be touched";
         fs::write(&target_file_7, &target_file_7_content).unwrap();
 
-        let results =
-            update_files_in_directory(&source_dir_path.as_path(), &target_dir_path.as_path());
-        assert_eq!(fs::read(&target_file_1).unwrap(), source_file_1_content);
-        assert_eq!(fs::read(&target_file_2).unwrap(), source_file_2_content);
-        assert_eq!(fs::read(&target_file_3).unwrap(), source_file_3_content);
-        assert_eq!(fs::read(&target_file_4).unwrap(), source_file_4_content);
-        assert_eq!(fs::read(&target_file_5).unwrap(), source_file_5_content);
-        assert_eq!(fs::read(&target_file_6).unwrap(), source_file_6_content);
-        assert_eq!(fs::read(&target_file_7).unwrap(), target_file_7_content);
+        let results = get_files_and_directories(&source_dir_path, &target_dir_path);
 
         assert_eq!(
             results.unwrap(),
-            vec![
-                target_file_4.into_os_string().into_string().unwrap(),
-                target_file_5.into_os_string().into_string().unwrap(),
-                target_file_6.into_os_string().into_string().unwrap(),
-                target_file_1.into_os_string().into_string().unwrap()
-            ]
+            FilesAndDirectories {
+                files: vec![
+                    FileToCopy {
+                        source: source_file_4,
+                        target: target_file_4,
+                    },
+                    FileToCopy {
+                        source: source_file_5,
+                        target: target_file_5,
+                    },
+                    FileToCopy {
+                        source: source_file_6,
+                        target: target_file_6,
+                    },
+                    FileToCopy {
+                        source: source_file_1,
+                        target: target_file_1,
+                    },
+                ],
+                directories: vec![DirectoryToCreate {
+                    path: target_subdir_2_path,
+                }]
+            }
         );
 
         // Delete all test directories and files
@@ -170,8 +256,8 @@ fn main() {
     let source;
     let target;
     if args.len() > 2 {
-        source = Path::new(&args[1]);
-        target = Path::new(&args[2]);
+        source = PathBuf::new().join(&args[1]);
+        target = PathBuf::new().join(&args[2]);
     } else {
         println!("Insufficient number of input arguments.");
         return;
@@ -190,10 +276,51 @@ fn main() {
     println!("Source dir: {}", &source.display());
     println!("Target dir: {}", &target.display());
 
-    let copied_paths = update_files_in_directory(&source, &target)
-        .expect("There was a problem with traversing the directory tree.");
+    let directories;
+    let files;
+    let results = get_files_and_directories(&source, &target)
+        .expect("Files and directories could not be generated!");
+    files = results.files;
+    directories = results.directories;
 
-    for copied_path in copied_paths {
-        println!("Copied to: {}", copied_path);
+    let len_directories = directories.len();
+    let len_files = files.len();
+
+    for (i, directory) in directories.iter().enumerate() {
+        print!(
+            "\rCreating directories: {:.2}% ({}/{})",
+            i as f64 / len_directories as f64 * 100.,
+            i,
+            len_directories
+        );
+        // Make sure it flushes immediately
+        std::io::Write::flush(&mut io::stdout()).unwrap();
+        fs::create_dir(&directory.path).unwrap();
+    }
+
+    println!(
+        "\rCreating directories: 100.00% ({}/{})",
+        len_directories, len_directories,
+    );
+
+    for (i, file) in files.iter().enumerate() {
+        print!(
+            "\rCopying files: {:.2}% ({}/{})",
+            i as f64 / len_files as f64 * 100.,
+            i,
+            len_files
+        );
+        // Make sure it flushes immediately
+        std::io::Write::flush(&mut io::stdout()).unwrap();
+        fs::copy(&file.source, &file.target).unwrap();
+    }
+    println!("\rCopying files: 100.00% ({}/{})", len_files, len_files,);
+
+    for directory in directories {
+        println!("Directory created: {}", directory.path.display());
+    }
+
+    for file in files {
+        println!("File copied: {}", file.source.display());
     }
 }
