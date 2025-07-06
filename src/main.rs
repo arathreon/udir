@@ -131,9 +131,9 @@ fn update_files_in_directory(source: &Path, target: &Path) -> io::Result<Vec<Str
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::thread::sleep;
     use std::time::Duration;
+
     #[test]
     fn test_get_files_and_directories() {
         // Set up files
@@ -282,6 +282,7 @@ fn main() {
         .expect("Files and directories could not be generated!");
     files = results.files;
     directories = results.directories;
+    let mut failed_files: Vec<&FileToCopy> = Vec::new();
 
     let len_directories = directories.len();
     let len_files = files.len();
@@ -312,7 +313,12 @@ fn main() {
         );
         // Make sure it flushes immediately
         std::io::Write::flush(&mut io::stdout()).unwrap();
-        fs::copy(&file.source, &file.target).unwrap();
+        match fs::copy(&file.source, &file.target) {
+            Ok(_) => {
+                println!("\rFile copied: {}", file.source.display())
+            }
+            Err(_) => failed_files.push(file),
+        };
     }
     println!("\rCopying files: 100.00% ({}/{})", len_files, len_files,);
 
@@ -320,7 +326,10 @@ fn main() {
         println!("Directory created: {}", directory.path.display());
     }
 
-    for file in files {
-        println!("File copied: {}", file.source.display());
+    if failed_files.len() > 0 {
+        println!("Files that failed to copy:");
+        for file in failed_files {
+            println!("    {}", file.source.display());
+        }
     }
 }
