@@ -113,34 +113,34 @@ fn create_directories(list_of_directories: &Vec<DirectoryToCreate>) -> Vec<Direc
     failed_directories
 }
 
-// /// Copy files from the provided vector of FileToCopy structs
-// fn copy_files(list_of_files: &Vec<FileToCopy>) -> Vec<FileToCopy> {
-//     let len_files = list_of_files.len();
-//
-//     if (len_files == 0) {
-//         return Vec::new();
-//     }
-//
-//     let mut failed_files = Vec::new();
-//
-//     for (i, file) in list_of_files.iter().enumerate() {
-//         print!(
-//             "\rCopying files: {:.2}% ({}/{})",
-//             i as f64 / len_files as f64 * 100.,
-//             i,
-//             len_files
-//         );
-//         // Make sure it flushes immediately
-//         std::io::Write::flush(&mut io::stdout()).unwrap();
-//         match fs::copy(&file.source, &file.target) {
-//             Ok(_) => println!("\rFile copied: {}", file.source.display()),
-//             Err(_) => failed_files.push(file.clone()),
-//         }
-//     }
-//     println!("\rCopying files: 100.00% ({}/{})", len_files, len_files);
-//
-//     failed_files
-// }
+/// Copy files from the provided vector of FileToCopy structs
+fn copy_files(list_of_files: &Vec<FileToCopy>) -> Vec<FileToCopy> {
+    let len_files = list_of_files.len();
+
+    if (len_files == 0) {
+        return Vec::new();
+    }
+
+    let mut failed_files = Vec::new();
+
+    for (i, file) in list_of_files.iter().enumerate() {
+        print!(
+            "\rCopying files: {:.2}% ({}/{})",
+            i as f64 / len_files as f64 * 100.,
+            i,
+            len_files
+        );
+        // Make sure it flushes immediately
+        std::io::Write::flush(&mut io::stdout()).unwrap();
+        match fs::copy(&file.source, &file.target) {
+            Ok(_) => println!("\rFile copied: {}", file.source.display()),
+            Err(_) => failed_files.push(file.clone()),
+        }
+    }
+    println!("\rCopying files: 100.00% ({}/{})", len_files, len_files);
+
+    failed_files
+}
 
 fn update_files_in_directory(source: &Path, target: &Path) -> io::Result<Vec<String>> {
     let mut copied_paths = vec![];
@@ -390,15 +390,109 @@ mod tests {
         fs::remove_dir_all(test_dir_path).unwrap();
     }
 
-    // #[test]
-    // fn test_copy_files() {
-    //     let current_path = env::current_dir().unwrap();
-    //     let test_dir_path = current_path.join("test_dir");
-    //     let source_dir_path = test_dir_path.join("source_dir");
-    //     let source_subdir_1_path = source_dir_path.join("subdir_subdir_1");
-    //     let source_subdir_2_path = source_dir_path.join("subdir_subdir_2");
-    //     let target_dir_path = test_dir_path.join("target_dir");
-    // }
+    #[test]
+    fn test_copy_files() {
+        // Set up paths
+        let current_path = env::current_dir().unwrap();
+        let test_dir_path = current_path.join("test_dir");
+        let source_dir_path = test_dir_path.join("source_dir");
+        let source_subdir_1_path = source_dir_path.join("subdir_1");
+        let source_subdir_2_path = source_dir_path.join("subdir_2");
+        let target_dir_path = test_dir_path.join("target_dir");
+        let target_subdir_1_path = target_dir_path.join("subdir_1");
+
+        // Delete all test directories and files
+        match fs::remove_dir_all(&test_dir_path) {
+            Ok(_) => {}
+            Err(_) => println!("[INFO] Test dir couldn't be removed"),
+        };
+
+        // Create test directories
+        fs::create_dir(&test_dir_path).unwrap();
+        fs::create_dir(&source_dir_path).unwrap();
+        fs::create_dir(&source_subdir_1_path).unwrap();
+        fs::create_dir(&source_subdir_2_path).unwrap();
+        fs::create_dir(&target_dir_path).unwrap();
+        fs::create_dir(&target_subdir_1_path).unwrap();
+
+        // Create files
+        let target_file_1 = target_dir_path.join("test_1.txt");
+        let source_file_1 = source_dir_path.join("test_1.txt");
+        let source_file_1_content = b"This is newer file 1 text";
+        fs::write(&target_file_1, b"This is older file 1 text").unwrap();
+        fs::write(&source_file_1, &source_file_1_content).unwrap();
+
+        let target_file_2 = target_subdir_1_path.join("test_2.txt");
+        let source_file_2 = source_subdir_1_path.join("test_2.txt");
+        let source_file_2_content = b"This is newer file 2 text";
+        fs::write(&target_file_2, b"This is older file 2 text").unwrap();
+        fs::write(&source_file_2, &source_file_2_content).unwrap();
+
+        let target_file_3 = target_subdir_1_path.join("test_3.txt");
+        let source_file_3 = source_subdir_1_path.join("test_3.txt");
+        let source_file_3_content = b"This is newer file 3 text";
+        fs::write(&source_file_3, &source_file_3_content).unwrap();
+
+        let target_file_4 = target_dir_path.join("subdir_2/test_4.txt");
+        let source_file_4 = source_subdir_2_path.join("test_4.txt");
+        let source_file_4_content = b"This is newer file 4 text";
+        fs::write(&source_file_4, &source_file_4_content).unwrap();
+
+        let target_file_5 = target_subdir_1_path.join("test_5.txt");
+        let source_file_5 = source_subdir_1_path.join("test_5.txt");
+
+        let test_input = vec![
+            FileToCopy {
+                source: source_file_1.clone(),
+                target: target_file_1.clone(),
+            },
+            FileToCopy {
+                source: source_file_2.clone(),
+                target: target_file_2.clone(),
+            },
+            FileToCopy {
+                source: source_file_3.clone(),
+                target: target_file_3.clone(),
+            },
+            FileToCopy {
+                source: source_file_4.clone(),
+                target: target_file_4.clone(),
+            },
+            FileToCopy {
+                source: source_file_5.clone(),
+                target: target_file_5.clone(),
+            },
+        ];
+
+        let expected_failed_files = vec![
+            FileToCopy {
+                source: source_file_4.clone(),
+                target: target_file_4.clone(),
+            },
+            FileToCopy {
+                source: source_file_5.clone(),
+                target: target_file_5.clone(),
+            },
+        ];
+
+        // Run the tested function
+        let result = copy_files(&test_input);
+
+        // Check that files expected to fail failed
+        assert_eq!(result, expected_failed_files);
+
+        // Check that copied files have the correct content
+        assert_eq!(fs::read(&target_file_1).unwrap(), source_file_1_content);
+        assert_eq!(fs::read(&target_file_2).unwrap(), source_file_2_content);
+        assert_eq!(fs::read(&target_file_3).unwrap(), source_file_3_content);
+
+        // Check that failed files don't exist
+        assert!(!fs::exists(&target_file_4).expect("The file does not exist"));
+        assert!(!fs::exists(&target_file_5).expect("The file does not exist"));
+
+        // Delete all test directories and files
+        fs::remove_dir_all(test_dir_path).unwrap();
+    }
 }
 
 fn main() {
@@ -433,22 +527,8 @@ fn main() {
     files = results.files;
     directories = results.directories;
 
-    let len_files = files.len();
-
     let failed_directories = create_directories(&directories);
-
-    for (i, file) in files.iter().enumerate() {
-        print!(
-            "\rCopying files: {:.2}% ({}/{})",
-            i as f64 / len_files as f64 * 100.,
-            i,
-            len_files
-        );
-        // Make sure it flushes immediately
-        std::io::Write::flush(&mut io::stdout()).unwrap();
-        fs::copy(&file.source, &file.target).unwrap();
-    }
-    println!("\rCopying files: 100.00% ({}/{})", len_files, len_files);
+    let failed_files = copy_files(&files);
 
     if failed_directories.len() > 0 {
         println!("Failed to create directories:");
@@ -457,12 +537,10 @@ fn main() {
         }
     }
 
-    for directory in directories {
-        println!("Directory created: {}", directory.path.display());
-    }
-
-    println!("Failed to create files:");
-    for file in files {
-        println!("File copied: {}", file.source.display());
+    if failed_files.len() > 0 {
+        println!("Failed to copy files:");
+        for file in failed_files {
+            println!("    {}", file.source.display());
+        }
     }
 }
