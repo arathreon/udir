@@ -3,13 +3,13 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct FileToCopy {
     source: PathBuf,
     target: PathBuf,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct DirectoryToCreate {
     path: PathBuf,
 }
@@ -20,6 +20,7 @@ struct FilesAndDirectories {
     directories: Vec<DirectoryToCreate>,
 }
 
+///
 fn get_files_and_directories(
     source: &PathBuf,
     target: &PathBuf,
@@ -80,6 +81,67 @@ fn get_files_and_directories(
     Ok(FilesAndDirectories { files, directories })
 }
 
+/// Create directories from the provided vector of DirectoryToCreate structs
+fn create_directories(list_of_directories: &Vec<DirectoryToCreate>) -> Vec<DirectoryToCreate> {
+    let len_directories = list_of_directories.len();
+
+    if (len_directories == 0) {
+        return Vec::new();
+    }
+
+    let mut failed_directories: Vec<DirectoryToCreate> = vec![];
+
+    for (i, directory) in list_of_directories.iter().enumerate() {
+        print!(
+            "\rCreating directories: {:.2}% ({}/{})",
+            i as f64 / len_directories as f64 * 100.,
+            i,
+            len_directories
+        );
+        // Make sure it flushes immediately
+        std::io::Write::flush(&mut io::stdout()).unwrap();
+        match fs::create_dir(&directory.path) {
+            Ok(_) => println!("\rDirectory created: {}", directory.path.display()),
+            Err(_) => failed_directories.push(directory.clone()),
+        }
+    }
+
+    println!(
+        "\rCreating directories: 100.00% ({}/{})",
+        len_directories, len_directories,
+    );
+    failed_directories
+}
+
+// /// Copy files from the provided vector of FileToCopy structs
+// fn copy_files(list_of_files: &Vec<FileToCopy>) -> Vec<FileToCopy> {
+//     let len_files = list_of_files.len();
+//
+//     if (len_files == 0) {
+//         return Vec::new();
+//     }
+//
+//     let mut failed_files = Vec::new();
+//
+//     for (i, file) in list_of_files.iter().enumerate() {
+//         print!(
+//             "\rCopying files: {:.2}% ({}/{})",
+//             i as f64 / len_files as f64 * 100.,
+//             i,
+//             len_files
+//         );
+//         // Make sure it flushes immediately
+//         std::io::Write::flush(&mut io::stdout()).unwrap();
+//         match fs::copy(&file.source, &file.target) {
+//             Ok(_) => println!("\rFile copied: {}", file.source.display()),
+//             Err(_) => failed_files.push(file.clone()),
+//         }
+//     }
+//     println!("\rCopying files: 100.00% ({}/{})", len_files, len_files);
+//
+//     failed_files
+// }
+
 fn update_files_in_directory(source: &Path, target: &Path) -> io::Result<Vec<String>> {
     let mut copied_paths = vec![];
 
@@ -118,7 +180,7 @@ fn update_files_in_directory(source: &Path, target: &Path) -> io::Result<Vec<Str
                         fs::copy(source_path, &target_path).expect("File could not be copied");
                         copied_paths.push(target_path.into_os_string().into_string().unwrap());
                     }
-                // If the target path doesn't exist, copy the source path.
+                    // If the target path doesn't exist, copy the source path.
                 } else {
                     fs::copy(source_path, &target_path).expect("File could not be copied");
                     copied_paths.push(target_path.into_os_string().into_string().unwrap());
@@ -133,6 +195,8 @@ fn update_files_in_directory(source: &Path, target: &Path) -> io::Result<Vec<Str
 mod tests {
     use std::thread::sleep;
     use std::time::Duration;
+
+    use super::*;
 
     #[test]
     fn test_get_files_and_directories() {
@@ -217,10 +281,12 @@ mod tests {
         let target_file_7_content = b"7 This is a relict that should not be touched";
         fs::write(&target_file_7, &target_file_7_content).unwrap();
 
-        let results = get_files_and_directories(&source_dir_path, &target_dir_path);
+        let mut results = get_files_and_directories(&source_dir_path, &target_dir_path).unwrap();
+
+        results.files.sort_by_key(|val| val.source.clone());
 
         assert_eq!(
-            results.unwrap(),
+            results,
             FilesAndDirectories {
                 files: vec![
                     FileToCopy {
@@ -249,6 +315,90 @@ mod tests {
         // Delete all test directories and files
         fs::remove_dir_all(test_dir_path).unwrap();
     }
+
+    #[test]
+    fn test_create_directories() {
+        // Set up files
+        let current_path = env::current_dir().unwrap();
+        let test_dir_path = current_path.join("test_dir");
+        let existing_dir_path = test_dir_path.join("existing_dir");
+
+        // Delete all test directories and files
+        match fs::remove_dir_all(&test_dir_path) {
+            Ok(_) => {}
+            Err(_) => println!("[INFO] Test dir couldn't be removed"),
+        };
+
+        // Create test directories
+        fs::create_dir(&test_dir_path).unwrap();
+        fs::create_dir(&existing_dir_path).unwrap();
+
+        // Test setup
+        let test_input = vec![
+            DirectoryToCreate {
+                path: test_dir_path.join("test_path_1"),
+            },
+            DirectoryToCreate {
+                path: test_dir_path.join("test_path_2"),
+            },
+            DirectoryToCreate {
+                path: test_dir_path.join("test_path_2/inner_test_path_2_1"),
+            },
+            DirectoryToCreate {
+                path: test_dir_path.join("test_path_2/inner_test_path_2_2"),
+            },
+            DirectoryToCreate {
+                path: existing_dir_path.clone(), // Existing path
+            },
+            DirectoryToCreate {
+                path: test_dir_path.join("test_path_3/inner_test_path_3_1"), // Path without existing parent folder
+            },
+        ];
+
+        let expected_existing_directories = vec![
+            test_dir_path.join("test_path_1"),
+            test_dir_path.join("test_path_2"),
+            test_dir_path.join("test_path_2/inner_test_path_2_1"),
+            test_dir_path.join("test_path_2/inner_test_path_2_2"),
+            existing_dir_path.clone(),
+        ];
+
+        let expected_failed_directories = vec![
+            DirectoryToCreate {
+                path: existing_dir_path.clone(), // Existing path
+            },
+            DirectoryToCreate {
+                path: test_dir_path.join("test_path_3/inner_test_path_3_1"), // Path without existing parent folder
+            },
+        ];
+
+        // Run the tested function
+        let result = create_directories(&test_input);
+
+        // Check that all directories that are expected to be created exist
+        assert_eq!(result, expected_failed_directories);
+        for i in expected_existing_directories.iter() {
+            assert!(fs::exists(i).is_ok())
+        }
+        // Check that the one which is not expected to exist doesn't exist
+        assert!(
+            !fs::exists(test_dir_path.join("test_path_3/inner_test_path_3_1"))
+                .expect("Directory doesn't exist")
+        );
+
+        // Delete all test directories and files
+        fs::remove_dir_all(test_dir_path).unwrap();
+    }
+
+    // #[test]
+    // fn test_copy_files() {
+    //     let current_path = env::current_dir().unwrap();
+    //     let test_dir_path = current_path.join("test_dir");
+    //     let source_dir_path = test_dir_path.join("source_dir");
+    //     let source_subdir_1_path = source_dir_path.join("subdir_subdir_1");
+    //     let source_subdir_2_path = source_dir_path.join("subdir_subdir_2");
+    //     let target_dir_path = test_dir_path.join("target_dir");
+    // }
 }
 
 fn main() {
@@ -282,27 +432,10 @@ fn main() {
         .expect("Files and directories could not be generated!");
     files = results.files;
     directories = results.directories;
-    let mut failed_files: Vec<&FileToCopy> = Vec::new();
 
-    let len_directories = directories.len();
     let len_files = files.len();
 
-    for (i, directory) in directories.iter().enumerate() {
-        print!(
-            "\rCreating directories: {:.2}% ({}/{})",
-            i as f64 / len_directories as f64 * 100.,
-            i,
-            len_directories
-        );
-        // Make sure it flushes immediately
-        std::io::Write::flush(&mut io::stdout()).unwrap();
-        fs::create_dir(&directory.path).unwrap();
-    }
-
-    println!(
-        "\rCreating directories: 100.00% ({}/{})",
-        len_directories, len_directories,
-    );
+    let failed_directories = create_directories(&directories);
 
     for (i, file) in files.iter().enumerate() {
         print!(
@@ -313,23 +446,23 @@ fn main() {
         );
         // Make sure it flushes immediately
         std::io::Write::flush(&mut io::stdout()).unwrap();
-        match fs::copy(&file.source, &file.target) {
-            Ok(_) => {
-                println!("\rFile copied: {}", file.source.display())
-            }
-            Err(_) => failed_files.push(file),
-        };
+        fs::copy(&file.source, &file.target).unwrap();
     }
-    println!("\rCopying files: 100.00% ({}/{})", len_files, len_files,);
+    println!("\rCopying files: 100.00% ({}/{})", len_files, len_files);
+
+    if failed_directories.len() > 0 {
+        println!("Failed to create directories:");
+        for directory in failed_directories {
+            println!("    {}", directory.path.display());
+        }
+    }
 
     for directory in directories {
         println!("Directory created: {}", directory.path.display());
     }
 
-    if failed_files.len() > 0 {
-        println!("Files that failed to copy:");
-        for file in failed_files {
-            println!("    {}", file.source.display());
-        }
+    println!("Failed to create files:");
+    for file in files {
+        println!("File copied: {}", file.source.display());
     }
 }
