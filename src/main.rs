@@ -142,55 +142,6 @@ fn copy_files(list_of_files: &Vec<FileToCopy>) -> Vec<FileToCopy> {
     failed_files
 }
 
-fn update_files_in_directory(source: &Path, target: &Path) -> io::Result<Vec<String>> {
-    let mut copied_paths = vec![];
-
-    if source.is_dir() && target.is_dir() {
-        for entry in fs::read_dir(source)? {
-            let entry = entry?;
-            let source_path = entry.path();
-            // If the current source path is a directory, check whether such subdirectory exists
-            // in the target path. If not, create it. Call the function for the subdirectories.
-            if source_path.is_dir() {
-                let dir_name = source_path.file_name().unwrap();
-                let new_target = Path::new(target).join(Path::new(dir_name));
-                let dir_exists = fs::exists(&new_target)?;
-                if !dir_exists {
-                    fs::create_dir(&new_target)?;
-                }
-                let mut copied_paths_in_dir = update_files_in_directory(&source_path, &new_target)?;
-                copied_paths.append(&mut copied_paths_in_dir);
-            } else {
-                // Source path is a file
-                let file_name = source_path.file_name().unwrap();
-                let target_path = Path::new(target).join(Path::new(file_name));
-                let file_exists = fs::exists(&target_path)?;
-
-                // If the target directory contains a file with the same name as the source path,
-                // check last modified timestamps. If the source file was modified later, re-write
-                // the target file.
-                if file_exists {
-                    let source_metadata = fs::metadata(&source_path)?;
-                    let target_metadata = fs::metadata(&target_path)?;
-
-                    let source_last_modified = source_metadata.modified()?;
-                    let target_last_modified = target_metadata.modified()?;
-
-                    if target_last_modified < source_last_modified {
-                        fs::copy(source_path, &target_path).expect("File could not be copied");
-                        copied_paths.push(target_path.into_os_string().into_string().unwrap());
-                    }
-                    // If the target path doesn't exist, copy the source path.
-                } else {
-                    fs::copy(source_path, &target_path).expect("File could not be copied");
-                    copied_paths.push(target_path.into_os_string().into_string().unwrap());
-                }
-            }
-        }
-    }
-    Ok(copied_paths)
-}
-
 #[cfg(test)]
 mod tests {
     use std::thread::sleep;
@@ -528,7 +479,7 @@ mod tests {
         fs::create_dir(&target_subdir_1_path).unwrap();
         fs::create_dir(&target_subdir_3_path).unwrap();
 
-        // Write files where target should be overwritten
+        // Write files where the target should be overwritten
         let target_file_1 = target_dir_path.join("test_1.txt");
         let source_file_1 = source_dir_path.join("test_1.txt");
         let source_file_1_content = b"This is new text in file 1";
@@ -578,7 +529,7 @@ mod tests {
         let source_file_6_content = b"This is new text in file 6";
         fs::write(&source_file_6, &source_file_6_content).unwrap();
 
-        // Write a file that should stay in target subdirectory 3
+        // Write a file that should stay in the target subdirectory 3
         let target_file_7 = target_subdir_3_path.join("test_7.txt");
         let target_file_7_content = b"This is a relict that should not be touched file 7";
         fs::write(&target_file_7, &target_file_7_content).unwrap();
@@ -590,6 +541,10 @@ mod tests {
         assert_eq!(fs::read(&target_file_1).unwrap(), source_file_1_content);
         assert_eq!(fs::read(&target_file_2).unwrap(), source_file_2_content);
         assert_eq!(fs::read(&target_file_3).unwrap(), source_file_3_content);
+        assert_eq!(fs::read(&target_file_4).unwrap(), source_file_4_content);
+        assert_eq!(fs::read(&target_file_5).unwrap(), source_file_5_content);
+        assert_eq!(fs::read(&target_file_6).unwrap(), source_file_6_content);
+        assert_eq!(fs::read(&target_file_6).unwrap(), target_file_7_content);
     }
 }
 
