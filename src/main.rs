@@ -457,12 +457,13 @@ mod tests {
         let current_path = env::current_dir().unwrap();
         let test_dir_path = current_path.join("test_dir_main_inner");
         let source_dir_path = test_dir_path.join("source_dir");
-        let source_subdir_1_path = source_dir_path.join("subdir_subdir_1");
-        let source_subdir_2_path = source_dir_path.join("subdir_subdir_2");
+        let source_subdir_1_path = source_dir_path.join("subdir_1");
+        let source_subdir_2_path = source_dir_path.join("subdir_2");
+        let source_subdir_4_path = source_dir_path.join("subdir_4");
         let target_dir_path = test_dir_path.join("target_dir");
-        let target_subdir_1_path = target_dir_path.join("subdir_subdir_1");
-        let target_subdir_2_path = target_dir_path.join("subdir_subdir_2");
-        let target_subdir_3_path = target_dir_path.join("subdir_subdir_3");
+        let target_subdir_1_path = target_dir_path.join("subdir_1");
+        let target_subdir_2_path = target_dir_path.join("subdir_2");
+        let target_subdir_3_path = target_dir_path.join("subdir_3");
 
         // Delete all test directories and files
         match fs::remove_dir_all(&test_dir_path) {
@@ -475,6 +476,7 @@ mod tests {
         fs::create_dir(&source_dir_path).unwrap();
         fs::create_dir(&source_subdir_1_path).unwrap();
         fs::create_dir(&source_subdir_2_path).unwrap();
+        fs::create_dir(&source_subdir_4_path).unwrap();
         fs::create_dir(&target_dir_path).unwrap();
         fs::create_dir(&target_subdir_1_path).unwrap();
         fs::create_dir(&target_subdir_3_path).unwrap();
@@ -537,14 +539,95 @@ mod tests {
         // Run the tested function
         main_inner(&source_dir_path, &target_dir_path);
 
+        // Verify directory structure
+        assert!(
+            target_subdir_1_path.exists(),
+            "Existing directory should remain"
+        );
+        assert!(
+            target_subdir_2_path.exists(),
+            "New directory should be created"
+        );
+        assert!(
+            target_subdir_3_path.exists(),
+            "Existing directory should remain"
+        );
+        assert!(
+            target_dir_path.join("subdir_4").exists(),
+            "New directory should be created"
+        );
+
+        // Verify source files remain unchanged
+        assert_eq!(
+            fs::read(&source_file_1).unwrap(),
+            source_file_1_content,
+            "Source file 1 should remain unchanged"
+        );
+        assert_eq!(
+            fs::read(&source_file_2).unwrap(),
+            source_file_2_content,
+            "Source file 2 should remain unchanged"
+        );
+        assert_eq!(
+            fs::read(&source_file_3).unwrap(),
+            source_file_3_content,
+            "Source file 3 should remain unchanged"
+        );
+        assert_eq!(
+            fs::read(&source_file_4).unwrap(),
+            source_file_4_content,
+            "Source file 4 should remain unchanged"
+        );
+        assert_eq!(
+            fs::read(&source_file_5).unwrap(),
+            source_file_5_content,
+            "Source file 5 should remain unchanged"
+        );
+        assert_eq!(
+            fs::read(&source_file_6).unwrap(),
+            source_file_6_content,
+            "Source file 6 should remain unchanged"
+        );
+
         // Check that files expected to exist actually exist and have the correct content.
-        assert_eq!(fs::read(&target_file_1).unwrap(), source_file_1_content);
-        assert_eq!(fs::read(&target_file_2).unwrap(), source_file_2_content);
-        assert_eq!(fs::read(&target_file_3).unwrap(), source_file_3_content);
-        assert_eq!(fs::read(&target_file_4).unwrap(), source_file_4_content);
-        assert_eq!(fs::read(&target_file_5).unwrap(), source_file_5_content);
-        assert_eq!(fs::read(&target_file_6).unwrap(), source_file_6_content);
-        assert_eq!(fs::read(&target_file_6).unwrap(), target_file_7_content);
+        assert_eq!(
+            fs::read(&target_file_1).unwrap(),
+            source_file_1_content,
+            "Target file 1 should be updated"
+        );
+        assert_eq!(
+            fs::read(&target_file_2).unwrap(),
+            source_file_2_content,
+            "Target file 2 should remain unchanged"
+        );
+        assert_eq!(
+            fs::read(&target_file_3).unwrap(),
+            source_file_3_content,
+            "Target file 3 should remain unchanged"
+        );
+        assert_eq!(
+            fs::read(&target_file_4).unwrap(),
+            source_file_4_content,
+            "Target file 4 should be updated"
+        );
+        assert_eq!(
+            fs::read(&target_file_5).unwrap(),
+            source_file_5_content,
+            "Target file 5 should be created"
+        );
+        assert_eq!(
+            fs::read(&target_file_6).unwrap(),
+            source_file_6_content,
+            "Target file 6 should be created"
+        );
+        assert_eq!(
+            fs::read(&target_file_7).unwrap(),
+            target_file_7_content,
+            "Target file 7 should remain unchanged"
+        );
+
+        // Delete all test directories and files
+        fs::remove_dir_all(test_dir_path).unwrap();
     }
 }
 
