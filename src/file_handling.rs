@@ -101,7 +101,7 @@ pub(crate) fn create_directories(
             len_directories
         );
         // Make sure it flushes immediately
-        std::io::Write::flush(&mut io::stdout()).unwrap();
+        io::Write::flush(&mut io::stdout()).unwrap();
         match fs::create_dir(&directory.path) {
             Ok(_) => println!("\rDirectory created: {}", directory.path.display()),
             Err(_) => failed_directories.push(directory.clone()),
@@ -133,7 +133,7 @@ pub(crate) fn copy_files(list_of_files: &Vec<FileToCopy>) -> Vec<FileToCopy> {
             len_files
         );
         // Make sure it flushes immediately
-        std::io::Write::flush(&mut io::stdout()).unwrap();
+        io::Write::flush(&mut io::stdout()).unwrap();
         match fs::copy(&file.source, &file.target) {
             Ok(_) => println!("\rFile copied: {}", file.source.display()),
             Err(_) => failed_files.push(file.clone()),
