@@ -6,8 +6,7 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[
     command(
-        name = "udir",
-        version = "0.1.0",
+        version,
         about = "A simple utility for recursively updating a target directory from a source directory based on its 'modified' timestamp.",
         long_about = None,
     )
@@ -238,6 +237,16 @@ fn main() {
     let cli = Cli::parse();
     let source = cli.source;
     let target = cli.target;
+
+    if !source.is_dir() {
+        println!("Source {} is not a directory", &source.display());
+        return;
+    }
+
+    if !target.is_dir() {
+        println!("Target {} is not a directory", &target.display());
+        return;
+    }
 
     println!("Source dir: {}", &source.display());
     println!("Target dir: {}", &target.display());
