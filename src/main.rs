@@ -1,13 +1,30 @@
 mod file_handling;
 
-use std::env;
-use std::fs;
+use clap::Parser;
 use std::path::PathBuf;
+
+#[derive(Parser)]
+#[
+    command(
+        name = "udir",
+        version = "0.1.0",
+        about = "A simple utility for recursively updating a target directory from a source directory based on its 'modified' timestamp.",
+        long_about = None,
+    )
+]
+struct Cli {
+    #[arg(help = "Source directory to copy from")]
+    source: PathBuf,
+
+    #[arg(help = "Target directory to copy to")]
+    target: PathBuf,
+}
 
 #[cfg(test)]
 mod tests {
     use std::thread::sleep;
     use std::time::Duration;
+    use std::{env, fs};
 
     use super::*;
 
@@ -218,26 +235,9 @@ fn main_inner(source: &PathBuf, target: &PathBuf) {
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let source;
-    let target;
-    if args.len() > 2 {
-        source = PathBuf::new().join(&args[1]);
-        target = PathBuf::new().join(&args[2]);
-    } else {
-        println!("Insufficient number of input arguments.");
-        return;
-    }
-
-    if !source.is_dir() {
-        println!("Source {} is not a directory", &source.display());
-        return;
-    }
-
-    if !target.is_dir() {
-        println!("Target {} is not a directory", &target.display());
-        return;
-    }
+    let cli = Cli::parse();
+    let source = cli.source;
+    let target = cli.target;
 
     println!("Source dir: {}", &source.display());
     println!("Target dir: {}", &target.display());
