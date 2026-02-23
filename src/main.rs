@@ -1,5 +1,6 @@
 mod file_handling;
 
+use std::collections::HashSet;
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -17,6 +18,9 @@ struct Cli {
 
     #[arg(help = "Target directory to copy to")]
     target: PathBuf,
+
+    #[arg(long, help = "Add directories to skip (relative to SOURCE)", num_args = 1..)]
+    skip_dir: Option<Vec<PathBuf>>,
 }
 
 #[cfg(test)]
@@ -113,7 +117,7 @@ mod tests {
         fs::write(&target_file_7, &target_file_7_content).unwrap();
 
         // Run the tested function
-        main_inner(&source_dir_path, &target_dir_path);
+        main_inner(source_dir_path.clone(), target_dir_path.clone(), HashSet::new());
 
         // Verify directory structure
         assert!(
@@ -205,12 +209,43 @@ mod tests {
         // Delete all test directories and files
         fs::remove_dir_all(test_dir_path).unwrap();
     }
+
+    #[test]
+    fn test_extract_skipped_directories_receives_none() {
+        let source = PathBuf::from("source");
+        assert_eq!(extract_skipped_directories(&source, &None), HashSet::new());
+    }
+
+    #[test]
+    fn test_extract_skipped_directories_receives_some() {
+        let source = PathBuf::from("source");
+        let skip_dirs = vec![PathBuf::from("dir1"), PathBuf::from("dir2")];
+        let result = HashSet::from([PathBuf::from("source/dir1"), PathBuf::from("source/dir2")]);
+        assert_eq!(extract_skipped_directories(&source, &Some(skip_dirs)), result);
+    }
+
+    #[test]
+    fn paths_are_the_same() {
+        let source = PathBuf::from("source");
+        let path1 = source.join("dir1");
+        let path2 = source.join("dir1/");
+        assert_eq!(path1, path2);
+    }
+
+    #[test]
+    fn path_hashes_are_the_same() {
+        let source = PathBuf::from("source");
+        let path1 = source.join("dir1");
+        let path2 = source.join("dir1/");
+        let hash_set = HashSet::from([path1, path2]);
+        assert_eq!(hash_set.len(), 1);
+    }
 }
 
-fn main_inner(source: &PathBuf, target: &PathBuf) {
+fn main_inner(source: PathBuf, target: PathBuf, directories_to_skip: HashSet<PathBuf>) {
     let directories;
     let files;
-    let results = file_handling::get_files_and_directories(source, target)
+    let results = file_handling::get_files_and_directories(&source, &target, &directories_to_skip)
         .expect("Files and directories could not be generated!");
     files = results.files;
     directories = results.directories;
@@ -233,6 +268,18 @@ fn main_inner(source: &PathBuf, target: &PathBuf) {
     }
 }
 
+
+fn extract_skipped_directories(source: &PathBuf, skip_dir: &Option<Vec<PathBuf>>) -> HashSet<PathBuf> {
+    let mut skipped_directories = HashSet::new();
+    if let Some(skip_dirs) = skip_dir {
+        for skip_dir in skip_dirs {
+            skipped_directories.insert(source.join(skip_dir.clone()));
+        }
+    }
+    skipped_directories
+}
+
+
 fn main() {
     let cli = Cli::parse();
     let source = cli.source;
@@ -251,5 +298,12 @@ fn main() {
     println!("Source dir: {}", &source.display());
     println!("Target dir: {}", &target.display());
 
-    main_inner(&source, &target);
+    let directories_to_skip = extract_skipped_directories(&source, &cli.skip_dir);
+    if !&directories_to_skip.is_empty() {
+        println!("Directories to skip: {:?}", &directories_to_skip);
+    } else {
+        println!("No directories to skip");
+    }
+
+    main_inner(source, target, directories_to_skip);
 }

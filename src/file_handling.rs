@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::{fs, io};
+use std::collections::HashSet;
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct FileToCopy {
@@ -24,6 +25,7 @@ pub(crate) struct FilesAndDirectories {
 pub(crate) fn get_files_and_directories(
     source: &PathBuf,
     target: &PathBuf,
+    directories_to_skip: &HashSet<PathBuf>,
 ) -> io::Result<FilesAndDirectories> {
     let mut files = Vec::new();
     let mut directories = Vec::new();
@@ -43,7 +45,7 @@ pub(crate) fn get_files_and_directories(
                         path: new_target.clone(),
                     });
                 }
-                let mut result = get_files_and_directories(&source_path, &new_target)?;
+                let mut result = get_files_and_directories(&source_path, &new_target, directories_to_skip)?;
                 files.append(&mut result.files);
                 directories.append(&mut result.directories);
             } else {
@@ -235,7 +237,7 @@ mod tests {
         let target_file_7_content = b"7 This is a relict that should not be touched";
         fs::write(&target_file_7, &target_file_7_content).unwrap();
 
-        let mut results = get_files_and_directories(&source_dir_path, &target_dir_path).unwrap();
+        let mut results = get_files_and_directories(&source_dir_path, &target_dir_path, &HashSet::new()).unwrap();
 
         results.files.sort_by_key(|val| val.source.clone());
 
