@@ -218,10 +218,23 @@ mod tests {
 
     #[test]
     fn test_extract_skipped_directories_receives_some() {
-        let source = PathBuf::from("source");
-        let skip_dirs = vec![PathBuf::from("dir1"), PathBuf::from("dir2")];
-        let result = HashSet::from([PathBuf::from("source/dir1"), PathBuf::from("source/dir2")]);
-        assert_eq!(extract_skipped_directories(&source, &Some(skip_dirs)), result);
+        let current_path = env::current_dir().unwrap();
+        let test_dir_path = current_path.join("test_dir_extract_skipped_directories");
+        let source_subdir_1_path = test_dir_path.join("subdir_1");
+        let source_subdir_2_path = test_dir_path.join("subdir_2");
+        let source_subdir_3_path = test_dir_path.join("subdir_3");
+        let source_subdir_4_path = test_dir_path.join("subdir_4");
+
+        fs::create_dir(&test_dir_path).unwrap();
+        fs::create_dir(&source_subdir_1_path).unwrap();
+        fs::create_dir(&source_subdir_3_path).unwrap();
+        fs::create_dir(&source_subdir_4_path).unwrap();
+
+        let skip_dirs = vec![source_subdir_1_path.clone(), source_subdir_2_path.clone(), source_subdir_3_path.clone()];
+        let result = HashSet::from([source_subdir_1_path, source_subdir_3_path]);
+        assert_eq!(extract_skipped_directories(&test_dir_path, &Some(skip_dirs)), result);
+
+        fs::remove_dir_all(test_dir_path).unwrap();
     }
 
     #[test]
@@ -269,11 +282,15 @@ fn main_inner(source: PathBuf, target: PathBuf, directories_to_skip: HashSet<Pat
 }
 
 
+/// Extracts the directories to skip from the provided `skip_dir` argument and returns them as a `HashSet<PathBuf>`.
+/// Check that the directories actually exist before adding them to the HashSet.
 fn extract_skipped_directories(source: &PathBuf, skip_dir: &Option<Vec<PathBuf>>) -> HashSet<PathBuf> {
     let mut skipped_directories = HashSet::new();
     if let Some(skip_dirs) = skip_dir {
         for skip_dir in skip_dirs {
-            skipped_directories.insert(source.join(skip_dir.clone()));
+            if skip_dir.is_dir() {
+                skipped_directories.insert(source.join(skip_dir.clone()));
+            }
         }
     }
     skipped_directories
