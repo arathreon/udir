@@ -277,7 +277,7 @@ mod tests {
     fn test_get_files_and_directories_with_skipped_directories() {
         // Set up files
         let current_path = env::current_dir().unwrap();
-        let test_dir_path = current_path.join("test_dir");
+        let test_dir_path = current_path.join("test_dir_skipped_directories");
         let source_dir_path = test_dir_path.join("source_dir");
         let source_subdir_1_path = source_dir_path.join("subdir_1");
         let source_subdir_2_path = source_dir_path.join("subdir_2");

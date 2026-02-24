@@ -288,8 +288,9 @@ fn extract_skipped_directories(source: &PathBuf, skip_dir: &Option<Vec<PathBuf>>
     let mut skipped_directories = HashSet::new();
     if let Some(skip_dirs) = skip_dir {
         for skip_dir in skip_dirs {
-            if skip_dir.is_dir() {
-                skipped_directories.insert(source.join(skip_dir.clone()));
+            let skip_dir_path = source.join(skip_dir.clone());
+            if skip_dir_path.is_dir() {
+                skipped_directories.insert(skip_dir_path);
             }
         }
     }
