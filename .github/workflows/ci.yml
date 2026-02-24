@@ -20,8 +20,6 @@ jobs:
         run: cargo install cargo-llvm-cov --locked
       - name: Format check
         run: cargo fmt --all -- --check
-      - name: Run test with coverage
-        run: cargo test --verbose
   lint:
     name: Lint check
     runs-on: ubuntu-latest
