@@ -71,26 +71,38 @@ fn extract_skipped_directories(
 fn main() {
     let cli = Cli::parse();
 
-    let cwd = env::current_dir().unwrap();
+    let source;
+    let target;
 
-    // Join adds a relative path to the current working directory or replaces with an absolute path.
-    let source = cwd.join(cli.source);
-    let target = cwd.join(cli.target);
+    if cli.source.is_relative() || cli.target.is_relative() {
+        let cwd = match env::current_dir() {
+            Ok(cwd) => cwd,
+            Err(e) => {
+                println!("Failed to get current working directory: {e}");
+                return;
+            }
+        };
+        source = cwd.join(cli.source);
+        target = cwd.join(cli.target);
+    } else {
+        source = cli.source;
+        target = cli.target;
+    }
 
     // We cannot do anything if the source or target directories don't exist, so we check that early
     // and exit if they are not directories.
     if !source.is_dir() {
-        println!("Source {} is not a directory", &source.display());
+        println!("Source {} is not a directory", source.display());
         return;
     }
 
     if !target.is_dir() {
-        println!("Target {} is not a directory", &target.display());
+        println!("Target {} is not a directory", target.display());
         return;
     }
 
-    println!("Source dir: {}", &source.display());
-    println!("Target dir: {}", &target.display());
+    println!("Source dir: {}", source.display());
+    println!("Target dir: {}", target.display());
 
     let directories_to_skip = extract_skipped_directories(&source, &cli.skip_dir);
     if !directories_to_skip.is_empty() {
