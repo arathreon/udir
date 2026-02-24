@@ -19,6 +19,52 @@ struct Cli {
     target: PathBuf,
 }
 
+fn main_inner(source: &PathBuf, target: &PathBuf) {
+    let results = file_handling::get_files_and_directories(source, target)
+        .expect("Files and directories could not be generated!");
+
+    let files = results.files;
+    let directories = results.directories;
+
+    let failed_directories = file_handling::create_directories(&directories);
+    let failed_files = file_handling::copy_files(&files);
+
+    if !failed_directories.is_empty() {
+        println!("Failed to create directories:");
+        for directory in failed_directories {
+            println!("    {}", directory.path.display());
+        }
+    }
+
+    if !failed_files.is_empty() {
+        println!("Failed to copy files:");
+        for file in failed_files {
+            println!("    {}", file.source.display());
+        }
+    }
+}
+
+fn main() {
+    let cli = Cli::parse();
+    let source = cli.source;
+    let target = cli.target;
+
+    if !source.is_dir() {
+        println!("Source {} is not a directory", &source.display());
+        return;
+    }
+
+    if !target.is_dir() {
+        println!("Target {} is not a directory", &target.display());
+        return;
+    }
+
+    println!("Source dir: {}", &source.display());
+    println!("Target dir: {}", &target.display());
+
+    main_inner(&source, &target);
+}
+
 #[cfg(test)]
 mod tests {
     use std::thread::sleep;
@@ -63,7 +109,7 @@ mod tests {
         let source_file_1_content = b"This is new text in file 1";
         fs::write(&target_file_1, b"This is old text in file 1").unwrap();
         sleep(Duration::from_nanos(1)); // waiting so the source file is newer
-        fs::write(&source_file_1, &source_file_1_content).unwrap();
+        fs::write(&source_file_1, source_file_1_content).unwrap();
 
         // Write files that should stay the same
         let target_file_2 = target_dir_path.join("test_2.txt");
@@ -80,7 +126,7 @@ mod tests {
         let target_file_3 = target_subdir_1_path.join("test_3.txt");
         let source_file_3 = source_subdir_1_path.join("test_3.txt");
         let source_file_3_content = b"This is unchanged text in file 3";
-        fs::write(&target_file_3, &source_file_3_content).unwrap();
+        fs::write(&target_file_3, source_file_3_content).unwrap();
         fs::copy(&target_file_3, &source_file_3).unwrap();
         assert_eq!(
             fs::metadata(&source_file_3).unwrap().modified().unwrap(),
@@ -93,24 +139,24 @@ mod tests {
         let source_file_4_content = b"This is new text in file 4";
         fs::write(&target_file_4, b"This is old text in file 4").unwrap();
         sleep(Duration::from_nanos(1)); // waiting so the source file is newer
-        fs::write(&source_file_4, &source_file_4_content).unwrap();
+        fs::write(&source_file_4, source_file_4_content).unwrap();
 
         // Write a file that should be created in subdirectory 1
         let target_file_5 = target_subdir_1_path.join("test_5.txt");
         let source_file_5 = source_subdir_1_path.join("test_5.txt");
         let source_file_5_content = b"This is new text in file 5";
-        fs::write(&source_file_5, &source_file_5_content).unwrap();
+        fs::write(&source_file_5, source_file_5_content).unwrap();
 
         // Write a file that should be created in subdirectory 2
         let target_file_6 = target_subdir_2_path.join("test_6.txt");
         let source_file_6 = source_subdir_2_path.join("test_6.txt");
         let source_file_6_content = b"This is new text in file 6";
-        fs::write(&source_file_6, &source_file_6_content).unwrap();
+        fs::write(&source_file_6, source_file_6_content).unwrap();
 
-        // Write a file that should stay in the target subdirectory 3
+        // Write a file that should stay in a target subdirectory 3
         let target_file_7 = target_subdir_3_path.join("test_7.txt");
         let target_file_7_content = b"This is a relict that should not be touched file 7";
-        fs::write(&target_file_7, &target_file_7_content).unwrap();
+        fs::write(&target_file_7, target_file_7_content).unwrap();
 
         // Run the tested function
         main_inner(&source_dir_path, &target_dir_path);
@@ -205,50 +251,4 @@ mod tests {
         // Delete all test directories and files
         fs::remove_dir_all(test_dir_path).unwrap();
     }
-}
-
-fn main_inner(source: &PathBuf, target: &PathBuf) {
-    let results = file_handling::get_files_and_directories(source, target)
-        .expect("Files and directories could not be generated!");
-
-    let files = results.files;
-    let directories = results.directories;
-
-    let failed_directories = file_handling::create_directories(&directories);
-    let failed_files = file_handling::copy_files(&files);
-
-    if !failed_directories.is_empty() {
-        println!("Failed to create directories:");
-        for directory in failed_directories {
-            println!("    {}", directory.path.display());
-        }
-    }
-
-    if !failed_files.is_empty() {
-        println!("Failed to copy files:");
-        for file in failed_files {
-            println!("    {}", file.source.display());
-        }
-    }
-}
-
-fn main() {
-    let cli = Cli::parse();
-    let source = cli.source;
-    let target = cli.target;
-
-    if !source.is_dir() {
-        println!("Source {} is not a directory", &source.display());
-        return;
-    }
-
-    if !target.is_dir() {
-        println!("Target {} is not a directory", &target.display());
-        return;
-    }
-
-    println!("Source dir: {}", &source.display());
-    println!("Target dir: {}", &target.display());
-
-    main_inner(&source, &target);
 }
