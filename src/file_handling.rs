@@ -81,7 +81,7 @@ pub(crate) fn get_files_and_directories(
     Ok(FilesAndDirectories { files, directories })
 }
 
-/// Create directories from the provided vector of DirectoryToCreate structs
+/// Create directories from the provided slice of DirectoryToCreate structs
 pub(crate) fn create_directories(
     list_of_directories: &[DirectoryToCreate],
 ) -> Vec<DirectoryToCreate> {
@@ -115,7 +115,7 @@ pub(crate) fn create_directories(
     failed_directories
 }
 
-/// Copy files from the provided vector of FileToCopy structs
+/// Copy files from the provided slice of FileToCopy structs
 pub(crate) fn copy_files(list_of_files: &[FileToCopy]) -> Vec<FileToCopy> {
     let len_files = list_of_files.len();
 
@@ -230,7 +230,7 @@ mod tests {
         let source_file_6_content = b"6 This is some new text in subdirectory 1";
         fs::write(&source_file_6, source_file_6_content).unwrap();
 
-        // Write a file that should stay in a target subdirectory 3
+        // Write a file that should stay in target subdirectory 3
         let target_file_7 = target_subdir_3_path.join("test_7.txt");
         let target_file_7_content = b"7 This is a relict that should not be touched";
         fs::write(&target_file_7, target_file_7_content).unwrap();

@@ -27,6 +27,7 @@ fn main_inner(source: &PathBuf, target: &PathBuf) {
     let directories = results.directories;
 
     let failed_directories = file_handling::create_directories(&directories);
+    let failed_directories = file_handling::create_directories(&directories);
     let failed_files = file_handling::copy_files(&files);
 
     if !failed_directories.is_empty() {
@@ -50,17 +51,17 @@ fn main() {
     let target = cli.target;
 
     if !source.is_dir() {
-        println!("Source {} is not a directory", &source.display());
+        println!("Source {} is not a directory", source.display());
         return;
     }
 
     if !target.is_dir() {
-        println!("Target {} is not a directory", &target.display());
+        println!("Target {} is not a directory", target.display());
         return;
     }
 
-    println!("Source dir: {}", &source.display());
-    println!("Target dir: {}", &target.display());
+    println!("Source dir: {}", source.display());
+    println!("Target dir: {}", target.display());
 
     main_inner(&source, &target);
 }
@@ -153,7 +154,7 @@ mod tests {
         let source_file_6_content = b"This is new text in file 6";
         fs::write(&source_file_6, source_file_6_content).unwrap();
 
-        // Write a file that should stay in a target subdirectory 3
+        // Write a file that should stay in target subdirectory 3
         let target_file_7 = target_subdir_3_path.join("test_7.txt");
         let target_file_7_content = b"This is a relict that should not be touched file 7";
         fs::write(&target_file_7, target_file_7_content).unwrap();
