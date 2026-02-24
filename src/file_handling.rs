@@ -83,7 +83,7 @@ pub(crate) fn get_files_and_directories(
 
 /// Create directories from the provided vector of DirectoryToCreate structs
 pub(crate) fn create_directories(
-    list_of_directories: &Vec<DirectoryToCreate>,
+    list_of_directories: &[DirectoryToCreate],
 ) -> Vec<DirectoryToCreate> {
     let len_directories = list_of_directories.len();
 
@@ -116,7 +116,7 @@ pub(crate) fn create_directories(
 }
 
 /// Copy files from the provided vector of FileToCopy structs
-pub(crate) fn copy_files(list_of_files: &Vec<FileToCopy>) -> Vec<FileToCopy> {
+pub(crate) fn copy_files(list_of_files: &[FileToCopy]) -> Vec<FileToCopy> {
     let len_files = list_of_files.len();
 
     if len_files == 0 {

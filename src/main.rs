@@ -208,24 +208,23 @@ mod tests {
 }
 
 fn main_inner(source: &PathBuf, target: &PathBuf) {
-    let directories;
-    let files;
     let results = file_handling::get_files_and_directories(source, target)
         .expect("Files and directories could not be generated!");
-    files = results.files;
-    directories = results.directories;
+
+    let files = results.files;
+    let directories = results.directories;
 
     let failed_directories = file_handling::create_directories(&directories);
     let failed_files = file_handling::copy_files(&files);
 
-    if failed_directories.len() > 0 {
+    if !failed_directories.is_empty() {
         println!("Failed to create directories:");
         for directory in failed_directories {
             println!("    {}", directory.path.display());
         }
     }
 
-    if failed_files.len() > 0 {
+    if !failed_files.is_empty() {
         println!("Failed to copy files:");
         for file in failed_files {
             println!("    {}", file.source.display());
