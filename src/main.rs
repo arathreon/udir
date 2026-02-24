@@ -1,9 +1,9 @@
 mod file_handling;
 
+use clap::Parser;
 use std::collections::HashSet;
 use std::env;
-use clap::Parser;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
 #[
@@ -25,24 +25,22 @@ struct Cli {
 }
 
 fn main_inner(source: PathBuf, target: PathBuf, directories_to_skip: HashSet<PathBuf>) {
-    let directories;
-    let files;
     let results = file_handling::get_files_and_directories(&source, &target, &directories_to_skip)
         .expect("Files and directories could not be generated!");
-    files = results.files;
-    directories = results.directories;
+    let files = results.files;
+    let directories = results.directories;
 
     let failed_directories = file_handling::create_directories(&directories);
     let failed_files = file_handling::copy_files(&files);
 
-    if failed_directories.len() > 0 {
+    if !failed_files.is_empty() {
         println!("Failed to create directories:");
         for directory in failed_directories {
             println!("    {}", directory.path.display());
         }
     }
 
-    if failed_files.len() > 0 {
+    if !failed_files.is_empty() {
         println!("Failed to copy files:");
         for file in failed_files {
             println!("    {}", file.source.display());
@@ -52,7 +50,7 @@ fn main_inner(source: PathBuf, target: PathBuf, directories_to_skip: HashSet<Pat
 
 /// Extracts the directories to skip from the provided `skip_dir` argument and returns them as a `HashSet<PathBuf>`.
 /// Check that the directories actually exist before adding them to the HashSet.
-fn extract_skipped_directories(source: &PathBuf, skip_dir: &Option<Vec<PathBuf>>) -> HashSet<PathBuf> {
+fn extract_skipped_directories(source: &Path, skip_dir: &Option<Vec<PathBuf>>) -> HashSet<PathBuf> {
     let mut skipped_directories = HashSet::new();
     if let Some(skip_dirs) = skip_dir {
         for skip_dir in skip_dirs {
@@ -66,7 +64,6 @@ fn extract_skipped_directories(source: &PathBuf, skip_dir: &Option<Vec<PathBuf>>
     }
     skipped_directories
 }
-
 
 fn main() {
     let cli = Cli::parse();
@@ -107,9 +104,9 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::thread::sleep;
     use std::time::Duration;
-    use std::fs;
 
     use super::*;
 
@@ -199,7 +196,11 @@ mod tests {
         fs::write(&target_file_7, target_file_7_content).unwrap();
 
         // Run the tested function
-        main_inner(source_dir_path.clone(), target_dir_path.clone(), HashSet::new());
+        main_inner(
+            source_dir_path.clone(),
+            target_dir_path.clone(),
+            HashSet::new(),
+        );
 
         // Verify directory structure
         assert!(
@@ -319,19 +320,22 @@ mod tests {
 
         // Define skipped directories, all possible states
         let skip_dirs = vec![
-            subdir_1_path.clone(),  // existing relative path
-            source_subdir_2_path.clone(),  // non-existent absolute path
-            source_subdir_3_path.clone(),  // existing absolute path
-            subdir_5_path.clone(),  // non-existent relative path
+            subdir_1_path.clone(),        // existing relative path
+            source_subdir_2_path.clone(), // non-existent absolute path
+            source_subdir_3_path.clone(), // existing absolute path
+            subdir_5_path.clone(),        // non-existent relative path
         ];
 
         // Expect only existing directories and only their absolute paths
         let result = HashSet::from([
-            source_subdir_1_path,  // from an existing relative path
-            source_subdir_3_path,  // from an existing absolute path
+            source_subdir_1_path, // from an existing relative path
+            source_subdir_3_path, // from an existing absolute path
         ]);
 
-        assert_eq!(extract_skipped_directories(&test_dir_path, &Some(skip_dirs)), result);
+        assert_eq!(
+            extract_skipped_directories(&test_dir_path, &Some(skip_dirs)),
+            result
+        );
 
         fs::remove_dir_all(test_dir_path).unwrap();
     }
