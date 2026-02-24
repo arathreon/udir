@@ -49,14 +49,17 @@ fn main_inner(source: PathBuf, target: PathBuf, directories_to_skip: HashSet<Pat
 }
 
 /// Extracts the directories to skip from the provided `skip_dir` argument and returns them as a `HashSet<PathBuf>`.
-/// Check that the directories actually exist before adding them to the HashSet.
-fn extract_skipped_directories(source: &Path, skip_dir: &Option<Vec<PathBuf>>) -> HashSet<PathBuf> {
+/// Only directories that exist are added to the returned HashSet.
+fn extract_skipped_directories(
+    source: &Path,
+    skip_dirs: &Option<Vec<PathBuf>>,
+) -> HashSet<PathBuf> {
     let mut skipped_directories = HashSet::new();
-    if let Some(skip_dirs) = skip_dir {
+    if let Some(skip_dirs) = skip_dirs {
         for skip_dir in skip_dirs {
             // This makes sure that the path is always either added to the source path or that it's
             // absolute
-            let skip_dir_path = source.join(skip_dir.clone());
+            let skip_dir_path = source.join(skip_dir);
             if skip_dir_path.is_dir() {
                 skipped_directories.insert(skip_dir_path);
             }
@@ -90,7 +93,7 @@ fn main() {
     println!("Target dir: {}", &target.display());
 
     let directories_to_skip = extract_skipped_directories(&source, &cli.skip_dir);
-    if !&directories_to_skip.is_empty() {
+    if !directories_to_skip.is_empty() {
         println!("Directories to skip:");
         for directory in &directories_to_skip {
             println!("    {}", directory.display());

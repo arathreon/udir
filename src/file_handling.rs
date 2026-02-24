@@ -35,7 +35,7 @@ pub(crate) fn get_files_and_directories(
             let entry = entry?;
             let source_path = entry.path();
             let is_entry_dir = source_path.is_dir();
-            if source_path.is_dir() && !directories_to_skip.contains(&source_path) {
+            if is_entry_dir && !directories_to_skip.contains(&source_path) {
                 // If the source_path is a subdirectory, check whether it exists. If not, add it
                 // to be created. Call the function on the subdirectory.
                 let dir_name = source_path.file_name().unwrap();
