@@ -1,6 +1,7 @@
 mod file_handling;
 
 use std::collections::HashSet;
+use std::env;
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -218,9 +219,14 @@ mod tests {
 
     #[test]
     fn test_extract_skipped_directories_receives_some() {
+        // Test setup
         let current_path = env::current_dir().unwrap();
         let test_dir_path = current_path.join("test_dir_extract_skipped_directories");
-        let source_subdir_1_path = test_dir_path.join("subdir_1");
+
+        let subdir_1_path = PathBuf::from("subdir_1");
+        let subdir_5_path = PathBuf::from("subdir_5");
+
+        let source_subdir_1_path = test_dir_path.join(subdir_1_path.clone());
         let source_subdir_2_path = test_dir_path.join("subdir_2");
         let source_subdir_3_path = test_dir_path.join("subdir_3");
         let source_subdir_4_path = test_dir_path.join("subdir_4");
@@ -230,8 +236,20 @@ mod tests {
         fs::create_dir(&source_subdir_3_path).unwrap();
         fs::create_dir(&source_subdir_4_path).unwrap();
 
-        let skip_dirs = vec![source_subdir_1_path.clone(), source_subdir_2_path.clone(), source_subdir_3_path.clone()];
-        let result = HashSet::from([source_subdir_1_path, source_subdir_3_path]);
+        // Define skipped directories, all possible states
+        let skip_dirs = vec![
+            subdir_1_path.clone(),  // existing relative path
+            source_subdir_2_path.clone(),  // non-existent absolute path
+            source_subdir_3_path.clone(),  // existing absolute path
+            subdir_5_path.clone(),  // non-existent relative path
+        ];
+
+        // Expect only existing directories and only their absolute paths
+        let result = HashSet::from([
+            source_subdir_1_path,  // from an existing relative path
+            source_subdir_3_path,  // from an existing absolute path
+        ]);
+
         assert_eq!(extract_skipped_directories(&test_dir_path, &Some(skip_dirs)), result);
 
         fs::remove_dir_all(test_dir_path).unwrap();
@@ -288,6 +306,8 @@ fn extract_skipped_directories(source: &PathBuf, skip_dir: &Option<Vec<PathBuf>>
     let mut skipped_directories = HashSet::new();
     if let Some(skip_dirs) = skip_dir {
         for skip_dir in skip_dirs {
+            // This makes sure that the path is always either added to the source path or that it's
+            // absolute
             let skip_dir_path = source.join(skip_dir.clone());
             if skip_dir_path.is_dir() {
                 skipped_directories.insert(skip_dir_path);
@@ -300,9 +320,15 @@ fn extract_skipped_directories(source: &PathBuf, skip_dir: &Option<Vec<PathBuf>>
 
 fn main() {
     let cli = Cli::parse();
-    let source = cli.source;
-    let target = cli.target;
 
+    let cwd = env::current_dir().unwrap();
+
+    // Join adds a relative path to the current working directory or replaces with an absolute path.
+    let source = cwd.join(cli.source);
+    let target = cwd.join(cli.target);
+
+    // We cannot do anything if the source or target directories don't exist, so we check that early
+    // and exit if they are not directories.
     if !source.is_dir() {
         println!("Source {} is not a directory", &source.display());
         return;
@@ -318,7 +344,10 @@ fn main() {
 
     let directories_to_skip = extract_skipped_directories(&source, &cli.skip_dir);
     if !&directories_to_skip.is_empty() {
-        println!("Directories to skip: {:?}", &directories_to_skip);
+        println!("Directories to skip:");
+        for directory in &directories_to_skip {
+            println!("    {}", directory.display());
+        }
     } else {
         println!("No directories to skip");
     }
