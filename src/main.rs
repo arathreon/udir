@@ -27,7 +27,6 @@ fn main_inner(source: &PathBuf, target: &PathBuf) {
     let directories = results.directories;
 
     let failed_directories = file_handling::create_directories(&directories);
-    let failed_directories = file_handling::create_directories(&directories);
     let failed_files = file_handling::copy_files(&files);
 
     if !failed_directories.is_empty() {
