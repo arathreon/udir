@@ -59,9 +59,10 @@ jobs:
       - name: Install cargo-llvm-cov for code coverage analysis
         run: cargo install cargo-llvm-cov --locked
       - name: Run tests with coverage
-        run: cargo llvm-cov --all-features --workspace --json --output-path cov.json
-      - name: Upload coverage reports to Codecov
+        run: cargo llvm-cov --all-features --workspace --codecov --output-path codecov.json
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./cov.json
+          token: ${{ secrets.CODECOV_TOKEN }} # required for private repos or protected branches
+          files: codecov.json
+          fail_ci_if_error: true
