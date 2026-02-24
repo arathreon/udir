@@ -20,7 +20,7 @@ struct Cli {
     #[arg(help = "Target directory to copy to")]
     target: PathBuf,
 
-    #[arg(long, help = "Add directories to skip (relative to SOURCE)", num_args = 1..)]
+    #[arg(long, help = "Add directories to skip (absolute or relative to SOURCE)", num_args = 1..)]
     skip_dir: Option<Vec<PathBuf>>,
 }
 
@@ -28,7 +28,7 @@ struct Cli {
 mod tests {
     use std::thread::sleep;
     use std::time::Duration;
-    use std::{env, fs};
+    use std::fs;
 
     use super::*;
 
