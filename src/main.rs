@@ -1,7 +1,9 @@
 mod file_handling;
 
 use clap::Parser;
-use std::path::PathBuf;
+use std::collections::HashSet;
+use std::env;
+use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
 #[
@@ -17,19 +19,21 @@ struct Cli {
 
     #[arg(help = "Target directory to copy to")]
     target: PathBuf,
+
+    #[arg(long, help = "Add directories to skip (absolute or relative to SOURCE)", num_args = 1..)]
+    skip_dir: Option<Vec<PathBuf>>,
 }
 
-fn main_inner(source: &PathBuf, target: &PathBuf) {
-    let results = file_handling::get_files_and_directories(source, target)
+fn main_inner(source: PathBuf, target: PathBuf, directories_to_skip: HashSet<PathBuf>) {
+    let results = file_handling::get_files_and_directories(&source, &target, &directories_to_skip)
         .expect("Files and directories could not be generated!");
-
     let files = results.files;
     let directories = results.directories;
 
     let failed_directories = file_handling::create_directories(&directories);
     let failed_files = file_handling::copy_files(&files);
 
-    if !failed_directories.is_empty() {
+    if !failed_files.is_empty() {
         println!("Failed to create directories:");
         for directory in failed_directories {
             println!("    {}", directory.path.display());
@@ -44,11 +48,49 @@ fn main_inner(source: &PathBuf, target: &PathBuf) {
     }
 }
 
+/// Extracts the directories to skip from the provided `skip_dir` argument and returns them as a `HashSet<PathBuf>`.
+/// Only directories that exist are added to the returned HashSet.
+fn extract_skipped_directories(
+    source: &Path,
+    skip_dirs: &Option<Vec<PathBuf>>,
+) -> HashSet<PathBuf> {
+    let mut skipped_directories = HashSet::new();
+    if let Some(skip_dirs) = skip_dirs {
+        for skip_dir in skip_dirs {
+            // This makes sure that the path is always either added to the source path or that it's
+            // absolute
+            let skip_dir_path = source.join(skip_dir);
+            if skip_dir_path.is_dir() {
+                skipped_directories.insert(skip_dir_path);
+            }
+        }
+    }
+    skipped_directories
+}
+
 fn main() {
     let cli = Cli::parse();
-    let source = cli.source;
-    let target = cli.target;
 
+    let source;
+    let target;
+
+    if cli.source.is_relative() || cli.target.is_relative() {
+        let cwd = match env::current_dir() {
+            Ok(cwd) => cwd,
+            Err(e) => {
+                println!("Failed to get current working directory: {e}");
+                return;
+            }
+        };
+        source = cwd.join(cli.source);
+        target = cwd.join(cli.target);
+    } else {
+        source = cli.source;
+        target = cli.target;
+    }
+
+    // We cannot do anything if the source or target directories don't exist, so we check that early
+    // and exit if they are not directories.
     if !source.is_dir() {
         println!("Source {} is not a directory", source.display());
         return;
@@ -62,14 +104,24 @@ fn main() {
     println!("Source dir: {}", source.display());
     println!("Target dir: {}", target.display());
 
-    main_inner(&source, &target);
+    let directories_to_skip = extract_skipped_directories(&source, &cli.skip_dir);
+    if !directories_to_skip.is_empty() {
+        println!("Directories to skip:");
+        for directory in &directories_to_skip {
+            println!("    {}", directory.display());
+        }
+    } else {
+        println!("No directories to skip");
+    }
+
+    main_inner(source, target, directories_to_skip);
 }
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::thread::sleep;
     use std::time::Duration;
-    use std::{env, fs};
 
     use super::*;
 
@@ -159,7 +211,11 @@ mod tests {
         fs::write(&target_file_7, target_file_7_content).unwrap();
 
         // Run the tested function
-        main_inner(&source_dir_path, &target_dir_path);
+        main_inner(
+            source_dir_path.clone(),
+            target_dir_path.clone(),
+            HashSet::new(),
+        );
 
         // Verify directory structure
         assert!(
@@ -250,5 +306,69 @@ mod tests {
 
         // Delete all test directories and files
         fs::remove_dir_all(test_dir_path).unwrap();
+    }
+
+    #[test]
+    fn test_extract_skipped_directories_receives_none() {
+        let source = PathBuf::from("source");
+        assert_eq!(extract_skipped_directories(&source, &None), HashSet::new());
+    }
+
+    #[test]
+    fn test_extract_skipped_directories_receives_some() {
+        // Test setup
+        let current_path = env::current_dir().unwrap();
+        let test_dir_path = current_path.join("test_dir_extract_skipped_directories");
+
+        let subdir_1_path = PathBuf::from("subdir_1");
+        let subdir_5_path = PathBuf::from("subdir_5");
+
+        let source_subdir_1_path = test_dir_path.join(subdir_1_path.clone());
+        let source_subdir_2_path = test_dir_path.join("subdir_2");
+        let source_subdir_3_path = test_dir_path.join("subdir_3");
+        let source_subdir_4_path = test_dir_path.join("subdir_4");
+
+        fs::create_dir(&test_dir_path).unwrap();
+        fs::create_dir(&source_subdir_1_path).unwrap();
+        fs::create_dir(&source_subdir_3_path).unwrap();
+        fs::create_dir(&source_subdir_4_path).unwrap();
+
+        // Define skipped directories, all possible states
+        let skip_dirs = vec![
+            subdir_1_path.clone(),        // existing relative path
+            source_subdir_2_path.clone(), // non-existent absolute path
+            source_subdir_3_path.clone(), // existing absolute path
+            subdir_5_path.clone(),        // non-existent relative path
+        ];
+
+        // Expect only existing directories and only their absolute paths
+        let result = HashSet::from([
+            source_subdir_1_path, // from an existing relative path
+            source_subdir_3_path, // from an existing absolute path
+        ]);
+
+        assert_eq!(
+            extract_skipped_directories(&test_dir_path, &Some(skip_dirs)),
+            result
+        );
+
+        fs::remove_dir_all(test_dir_path).unwrap();
+    }
+
+    #[test]
+    fn paths_are_the_same() {
+        let source = PathBuf::from("source");
+        let path1 = source.join("dir1");
+        let path2 = source.join("dir1/");
+        assert_eq!(path1, path2);
+    }
+
+    #[test]
+    fn path_hashes_are_the_same() {
+        let source = PathBuf::from("source");
+        let path1 = source.join("dir1");
+        let path2 = source.join("dir1/");
+        let hash_set = HashSet::from([path1, path2]);
+        assert_eq!(hash_set.len(), 1);
     }
 }
