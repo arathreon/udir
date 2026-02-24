@@ -81,9 +81,9 @@ pub(crate) fn get_files_and_directories(
     Ok(FilesAndDirectories { files, directories })
 }
 
-/// Create directories from the provided vector of DirectoryToCreate structs
+/// Create directories from the provided slice of DirectoryToCreate structs
 pub(crate) fn create_directories(
-    list_of_directories: &Vec<DirectoryToCreate>,
+    list_of_directories: &[DirectoryToCreate],
 ) -> Vec<DirectoryToCreate> {
     let len_directories = list_of_directories.len();
 
@@ -115,8 +115,8 @@ pub(crate) fn create_directories(
     failed_directories
 }
 
-/// Copy files from the provided vector of FileToCopy structs
-pub(crate) fn copy_files(list_of_files: &Vec<FileToCopy>) -> Vec<FileToCopy> {
+/// Copy files from the provided slice of FileToCopy structs
+pub(crate) fn copy_files(list_of_files: &[FileToCopy]) -> Vec<FileToCopy> {
     let len_files = list_of_files.len();
 
     if len_files == 0 {
@@ -186,7 +186,7 @@ mod tests {
         let source_file_1_content = b"This is some newer text";
         fs::write(&target_file_1, b"This is some text").unwrap();
         sleep(Duration::from_nanos(1)); // waiting so the source file is newer
-        fs::write(&source_file_1, &source_file_1_content).unwrap();
+        fs::write(&source_file_1, source_file_1_content).unwrap();
 
         // Write files that should stay the same
         let target_file_2 = target_dir_path.join("test_2.txt");
@@ -203,7 +203,7 @@ mod tests {
         let target_file_3 = target_subdir_1_path.join("test_3.txt");
         let source_file_3 = source_subdir_1_path.join("test_3.txt");
         let source_file_3_content = b"This is unchanged text too";
-        fs::write(&target_file_3, &source_file_3_content).unwrap();
+        fs::write(&target_file_3, source_file_3_content).unwrap();
         fs::copy(&target_file_3, &source_file_3).unwrap();
         assert_eq!(
             fs::metadata(&source_file_3).unwrap().modified().unwrap(),
@@ -216,24 +216,24 @@ mod tests {
         let source_file_4_content = b"4 This is some changed text in subdirectory 1";
         fs::write(&target_file_4, b"4 This is some text in subdirectory 1").unwrap();
         sleep(Duration::from_nanos(1)); // waiting so the source file is newer
-        fs::write(&source_file_4, &source_file_4_content).unwrap();
+        fs::write(&source_file_4, source_file_4_content).unwrap();
 
         // Write a file that should be created in subdirectory 1
         let target_file_5 = target_subdir_1_path.join("test_5.txt");
         let source_file_5 = source_subdir_1_path.join("test_5.txt");
         let source_file_5_content = b"5 This is some new text in subdirectory 1";
-        fs::write(&source_file_5, &source_file_5_content).unwrap();
+        fs::write(&source_file_5, source_file_5_content).unwrap();
 
         // Write a file that should be created in subdirectory 2
         let target_file_6 = target_subdir_2_path.join("test_6.txt");
         let source_file_6 = source_subdir_2_path.join("test_6.txt");
         let source_file_6_content = b"6 This is some new text in subdirectory 1";
-        fs::write(&source_file_6, &source_file_6_content).unwrap();
+        fs::write(&source_file_6, source_file_6_content).unwrap();
 
         // Write a file that should stay in target subdirectory 3
         let target_file_7 = target_subdir_3_path.join("test_7.txt");
         let target_file_7_content = b"7 This is a relict that should not be touched";
-        fs::write(&target_file_7, &target_file_7_content).unwrap();
+        fs::write(&target_file_7, target_file_7_content).unwrap();
 
         let mut results = get_files_and_directories(&source_dir_path, &target_dir_path).unwrap();
 
@@ -305,11 +305,11 @@ mod tests {
                 path: existing_dir_path.clone(), // Existing path
             },
             DirectoryToCreate {
-                path: test_dir_path.join("test_path_3/inner_test_path_3_1"), // Path without existing parent folder
+                path: test_dir_path.join("test_path_3/inner_test_path_3_1"), // Path without an existing parent folder
             },
         ];
 
-        let expected_existing_directories = vec![
+        let expected_existing_directories = [
             test_dir_path.join("test_path_1"),
             test_dir_path.join("test_path_2"),
             test_dir_path.join("test_path_2/inner_test_path_2_1"),
@@ -374,23 +374,23 @@ mod tests {
         let source_file_1 = source_dir_path.join("test_1.txt");
         let source_file_1_content = b"This is newer file 1 text";
         fs::write(&target_file_1, b"This is older file 1 text").unwrap();
-        fs::write(&source_file_1, &source_file_1_content).unwrap();
+        fs::write(&source_file_1, source_file_1_content).unwrap();
 
         let target_file_2 = target_subdir_1_path.join("test_2.txt");
         let source_file_2 = source_subdir_1_path.join("test_2.txt");
         let source_file_2_content = b"This is newer file 2 text";
         fs::write(&target_file_2, b"This is older file 2 text").unwrap();
-        fs::write(&source_file_2, &source_file_2_content).unwrap();
+        fs::write(&source_file_2, source_file_2_content).unwrap();
 
         let target_file_3 = target_subdir_1_path.join("test_3.txt");
         let source_file_3 = source_subdir_1_path.join("test_3.txt");
         let source_file_3_content = b"This is newer file 3 text";
-        fs::write(&source_file_3, &source_file_3_content).unwrap();
+        fs::write(&source_file_3, source_file_3_content).unwrap();
 
         let target_file_4 = target_dir_path.join("subdir_2/test_4.txt");
         let source_file_4 = source_subdir_2_path.join("test_4.txt");
         let source_file_4_content = b"This is newer file 4 text";
-        fs::write(&source_file_4, &source_file_4_content).unwrap();
+        fs::write(&source_file_4, source_file_4_content).unwrap();
 
         let target_file_5 = target_subdir_1_path.join("test_5.txt");
         let source_file_5 = source_subdir_1_path.join("test_5.txt");
